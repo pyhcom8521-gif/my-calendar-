@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>개인 캘린더</title>
+  <style>
+    :root {
+      --primary: #4f86f7;
+      --primary-light: #eff4ff;
+      --primary-hover: #3a70e3;
+      --danger: #ff4757;
+      --danger-light: #fff0f1;
+      --text: #1a1a2e;
+      --text-sub: #666;
+      --text-muted: #aaa;
+      --border: #eaeaea;
+      --bg: #f4f6fb;
+      --white: #ffffff;
+      --shadow: 0 2px 12px rgba(0,0,0,0.07);
+      --radius: 14px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── App ── */
+    .app {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 20px 16px 80px;
+    }
+
+    /* ── Notification Bar ── */
+    .notif-bar {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      background: #fff8e1;
+      border: 1px solid #ffe082;
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      margin-bottom: 14px;
+    }
+    .notif-bar-text { font-size: 13px; color: #7a6000; flex: 1; }
+    .notif-allow-btn {
+      background: #f9a825;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .notif-allow-btn:hover { background: #e08e00; }
+    .notif-dismiss {
+      background: none;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      color: #999;
+      line-height: 1;
+      padding: 2px 4px;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 18px 22px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .app-icon { font-size: 26px; line-height: 1; }
+    .month-year { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .month-year span { color: var(--primary); }
+    .nav-group { display: flex; align-items: center; gap: 6px; }
+    .nav-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      width: 36px; height: 36px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; color: var(--text-sub);
+      transition: all 0.15s;
+    }
+    .nav-btn:hover { background: var(--bg); border-color: #ccc; }
+    .today-btn {
+      background: none;
+      border: 1.5px solid var(--primary);
+      border-radius: 9px;
+      padding: 6px 15px;
+      cursor: pointer;
+      font-size: 13px; color: var(--primary);
+      font-weight: 700;
+      transition: all 0.15s;
+    }
+    .today-btn:hover { background: var(--primary); color: #fff; }
+
+    /* ── Calendar Card ── */
+    .calendar-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    /* Day-of-week headers */
+    .cal-head {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      border-bottom: 1px solid var(--border);
+      background: #fafbfe;
+    }
+    .cal-head-cell {
+      padding: 12px 4px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-sub);
+      letter-spacing: 0.5px;
+    }
+    .cal-head-cell:first-child { color: var(--danger); }
+    .cal-head-cell:last-child  { color: var(--primary); }
+
+    /* Calendar grid */
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+    }
+    .cal-cell {
+      min-height: 108px;
+      padding: 7px 6px 5px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.1s;
+      position: relative;
+    }
+    .cal-cell:nth-child(7n) { border-right: none; }
+    .cal-cell:hover { background: #f8f9fe; }
+    .cal-cell.other-month { background: #fafafa; }
+    .cal-cell.other-month .day-num { color: var(--text-muted); }
+    .cal-cell.is-today { background: var(--primary-light); }
+
+    .day-num {
+      font-size: 13px;
+      font-weight: 700;
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+      margin-bottom: 3px;
+      transition: all 0.1s;
+    }
+    .cal-cell.is-today .day-num {
+      background: var(--primary);
+      color: #fff;
+    }
+    .cal-cell.is-sun .day-num { color: var(--danger); }
+    .cal-cell.is-sat .day-num { color: var(--primary); }
+    .cal-cell.is-today .day-num { color: #fff !important; }
+    .cal-cell.other-month .day-num { color: var(--text-muted) !important; }
+
+    .evt-chip {
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 5px;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #fff;
+      font-weight: 600;
+      line-height: 1.5;
+      transition: opacity 0.1s;
+    }
+    .evt-chip:hover { opacity: 0.85; }
+    .more-badge {
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 1px 4px;
+      font-weight: 600;
+    }
+
+    /* ── FAB ── */
+    .fab {
+      position: fixed;
+      bottom: 28px; right: 24px;
+      width: 52px; height: 52px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      font-size: 26px;
+      cursor: pointer;
+      box-shadow: 0 4px 18px rgba(79,134,247,0.45);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+      z-index: 50;
+    }
+    .fab:hover { background: var(--primary-hover); transform: scale(1.07); }
+    .fab:active { transform: scale(0.96); }
+
+    /* ── Modal Overlay ── */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.38);
+      z-index: 100;
+      display: flex; align-items: flex-end; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.22s;
+    }
+    .overlay.open { opacity: 1; pointer-events: all; }
+
+    @media (min-width: 600px) {
+      .overlay { align-items: center; }
+    }
+
+    .modal {
+      background: var(--white);
+      border-radius: 20px 20px 0 0;
+      width: 100%; max-width: 520px;
+      max-height: 92vh;
+      overflow-y: auto;
+      padding: 24px 22px 32px;
+      transform: translateY(40px);
+      transition: transform 0.25s cubic-bezier(0.34,1.2,0.64,1);
+    }
+    .overlay.open .modal { transform: translateY(0); }
+
+    @media (min-width: 600px) {
+      .modal {
+        border-radius: 20px;
+        transform: translateY(20px) scale(0.97);
+      }
+      .overlay.open .modal { transform: translateY(0) scale(1); }
+    }
+
+    .modal-handle {
+      width: 40px; height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 0 auto 18px;
+      display: block;
+    }
+    @media (min-width: 600px) { .modal-handle { display: none; } }
+
+    .modal-header {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .modal-title { font-size: 18px; font-weight: 800; }
+    .modal-close {
+      background: var(--bg);
+      border: none;
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 18px; color: var(--text-sub);
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.1s;
+    }
+    .modal-close:hover { background: var(--border); }
+
+    /* ── Day Modal Events List ── */
+    .day-evt-list { margin-bottom: 6px; }
+    .empty-day {
+      text-align: center;
+      padding: 24px 0 16px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    .day-evt-item {
+      display: flex; align-items: flex-start; gap: 11px;
+      padding: 11px 13px;
+      border-radius: 10px;
+      margin-bottom: 7px;
+      cursor: pointer;
+      transition: background 0.12s;
+      border: 1px solid transparent;
+    }
+    .day-evt-item:hover { background: var(--bg); border-color: var(--border); }
+    .evt-dot {
+      width: 11px; height: 11px;
+      border-radius: 50%;
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+    .evt-info { flex: 1; min-width: 0; }
+    .evt-title { font-size: 14px; font-weight: 700; color: var(--text); word-break: break-all; }
+    .evt-meta { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+    .evt-note { font-size: 12px; color: var(--text-muted); margin-top: 3px; white-space: pre-wrap; word-break: break-all; }
+    .evt-item-arrow { color: var(--text-muted); font-size: 16px; align-self: center; }
+
+    .add-evt-btn {
+      width: 100%;
+      padding: 11px;
+      background: none;
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 13px; color: var(--text-muted);
+      font-weight: 600;
+      transition: all 0.15s;
+      margin-top: 4px;
+    }
+    .add-evt-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+
+    /* ── Form ── */
+    .form-group { margin-bottom: 15px; }
+    .form-label {
+      display: block;
+      font-size: 12px; font-weight: 700;
+      color: var(--text-sub);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .form-input,
+    .form-select,
+    .form-textarea {
+      width: 100%;
+      padding: 11px 13px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px; color: var(--text);
+      transition: border-color 0.15s, box-shadow 0.15s;
+      font-family: inherit;
+      background: var(--white);
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79,134,247,0.12);
+    }
+    .form-input.has-error { border-color: var(--danger); }
+    .form-textarea { resize: vertical; min-height: 78px; line-height: 1.5; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 400px) { .form-row { grid-template-columns: 1fr; } }
+
+    /* Color picker */
+    .color-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+    .color-swatch {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: transform 0.15s, border-color 0.15s;
+      position: relative;
+    }
+    .color-swatch.active {
+      border-color: var(--text);
+      transform: scale(1.15);
+    }
+    .color-swatch.active::after {
+      content: '✓';
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; color: #fff; font-weight: 700;
+    }
+
+    /* Modal actions */
+    .modal-actions { display: flex; gap: 8px; margin-top: 20px; }
+    .btn {
+      flex: 1; padding: 12px 10px;
+      border-radius: 10px;
+      border: none;
+      font-size: 14px; font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary { background: var(--bg); color: var(--text-sub); }
+    .btn-secondary:hover { background: var(--border); }
+    .btn-danger { background: var(--danger-light); color: var(--danger); }
+    .btn-danger:hover { background: #ffd7da; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 90px; left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: rgba(26,26,46,0.92);
+      color: #fff;
+      padding: 11px 22px;
+      border-radius: 22px;
+      font-size: 14px; font-weight: 600;
+      z-index: 300;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s, transform 0.25s;
+      white-space: nowrap;
+      backdrop-filter: blur(4px);
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .cal-cell { min-height: 76px; padding: 5px 4px; }
+      .day-num { font-size: 12px; width: 24px; height: 24px; }
+      .evt-chip { font-size: 10px; padding: 2px 5px; }
+      .month-year { font-size: 18px; }
+      .app { padding: 12px 10px 80px; }
+    }
+    @media (max-width: 380px) {
+      .cal-cell { min-height: 60px; padding: 4px 3px; }
+      .evt-chip { display: none; }
+      .has-events::after {
+        content: '';
+        display: block;
+        width: 6px; height: 6px;
+        border-radius: 50%;
+        background: var(--primary);
+        margin: 2px auto 0;
+      }
+      .more-badge { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Notification bar -->
+  <div class="notif-bar" id="notifBar">
+    <span class="notif-bar-text">🔔 일정 시작 10분 전에 알림을 받으려면 브라우저 알림을 허용해주세요.</span>
+    <button class="notif-allow-btn" onclick="requestNotifPermission()">허용</button>
+    <button class="notif-dismiss" onclick="dismissNotifBar()" title="닫기">×</button>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <span class="app-icon">📅</span>
+      <div class="month-year" id="monthYearLabel"></div>
+    </div>
+    <div class="nav-group">
+      <button class="today-btn" onclick="goToday()">오늘</button>
+      <button class="nav-btn" onclick="shiftMonth(-1)" title="이전 달">&#8249;</button>
+      <button class="nav-btn" onclick="shiftMonth(1)"  title="다음 달">&#8250;</button>
+    </div>
+  </div>
+
+  <!-- Calendar -->
+  <div class="calendar-card">
+    <div class="cal-head">
+      <div class="cal-head-cell">일</div>
+      <div class="cal-head-cell">월</div>
+      <div class="cal-head-cell">화</div>
+      <div class="cal-head-cell">수</div>
+      <div class="cal-head-cell">목</div>
+      <div class="cal-head-cell">금</div>
+      <div class="cal-head-cell">토</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+</div>
+
+<!-- FAB -->
+<button class="fab" onclick="openAddForDate(todayStr())" title="오늘 일정 추가">+</button>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ═══ Day Modal ═══ -->
+<div class="overlay" id="dayOverlay" onclick="overlayClick(event,'dayOverlay')">
+  <div class="modal">
+    <span class="modal-handle"></span>
+    <div class="modal-header">
+      <div class="modal-title" id="dayModalTitle"></div>
+      <button class="modal-close" onclick="closeOverlay('dayOverlay')">×</button>
+    </div>
+    <div class="day-evt-list" id="dayEvtList"></div>
+    <button class="add-evt-btn" id="dayAddBtn">＋ 일정 추가</button>
+  </div>
+</div>
+
+<!-- ═══ Event Form Modal ═══ -->
+<div class="overlay" id="evtOverlay" onclick="overlayClick(event,'evtOverlay')">
+  <div class="modal">
+    <span class="modal-handle"></span>
+    <div class="modal-header">
+      <div class="modal-title" id="evtModalTitle">일정 추가</div>
+      <button class="modal-close" onclick="closeOverlay('evtOverlay')">×</button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">제목 *</label>
+      <input class="form-input" id="fTitle" type="text" placeholder="일정 제목을 입력하세요" maxlength="80">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">날짜</label>
+      <input class="form-input" id="fDate" type="date">
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">시작 시간</label>
+        <input class="form-input" id="fStart" type="time">
+      </div>
+      <div class="form-group">
+        <label class="form-label">종료 시간</label>
+        <input class="form-input" id="fEnd" type="time">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">반복</label>
+      <select class="form-select" id="fRepeat" onchange="toggleRepeatEnd()">
+        <option value="none">반복 없음</option>
+        <option value="daily">매일</option>
+        <option value="weekly">매주 (같은 요일)</option>
+        <option value="monthly">매월 (같은 날짜)</option>
+      </select>
+    </div>
+
+    <div class="form-group" id="fRepeatEndGroup" style="display:none">
+      <label class="form-label">반복 종료일</label>
+      <input class="form-input" id="fRepeatEnd" type="date">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">메모</label>
+      <textarea class="form-textarea" id="fNote" placeholder="메모를 입력하세요 (선택사항)" maxlength="500"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">색상</label>
+      <div class="color-picker" id="colorPicker"></div>
+    </div>
+
+    <div class="modal-actions" id="evtActions"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  Constants & Config
+// ═══════════════════════════════════════════
+const STORAGE_KEY = 'cal_events_v2';
+const COLORS = [
+  '#4f86f7','#ff4757','#2ed573','#ffa502',
+  '#a55eea','#ff6b81','#1e90ff','#ff6348',
+  '#2bcbba','#fd9644'
+];
+const DAYS_KO = ['일','월','화','수','목','금','토'];
+const MONTHS_KO = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+const REPEAT_LABELS = { daily:'매일', weekly:'매주', monthly:'매월' };
+
+// ═══════════════════════════════════════════
+//  State
+// ═══════════════════════════════════════════
+let viewYear  = new Date().getFullYear();
+let viewMonth = new Date().getMonth();
+let activeDayDate = ''; // YYYY-MM-DD for currently open day modal
+let editingId = null;
+let chosenColor = COLORS[0];
+let notifTimers = {};
+
+// ═══════════════════════════════════════════
+//  Storage
+// ═══════════════════════════════════════════
+function loadEvts() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+  catch { return []; }
+}
+function saveEvts(evts) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(evts));
+}
+
+// ═══════════════════════════════════════════
+//  Date Utilities
+// ═══════════════════════════════════════════
+function todayStr() {
+  return fmtDate(new Date());
+}
+function fmtDate(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function pad(n) { return String(n).padStart(2,'0'); }
+
+function dateFromStr(s) {
+  // Parse YYYY-MM-DD safely (avoid timezone issues)
+  const [y,m,d] = s.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+
+// Returns all dates (YYYY-MM-DD[]) that an event falls on within a given month
+function evtDatesInMonth(ev, year, month) {
+  const base   = dateFromStr(ev.date);
+  const mStart = new Date(year, month, 1);
+  const mEnd   = new Date(year, month+1, 0);
+  const rEnd   = ev.repeatEndDate ? dateFromStr(ev.repeatEndDate) : new Date(9999,0,1);
+  const dates  = [];
+
+  if (ev.repeat === 'none') {
+    if (base.getFullYear() === year && base.getMonth() === month)
+      dates.push(ev.date);
+    return dates;
+  }
+
+  let cur = new Date(Math.max(base.getTime(), mStart.getTime()));
+  // Align to first valid occurrence >= mStart
+  if (ev.repeat === 'weekly') {
+    const diff = (base.getDay() - cur.getDay() + 7) % 7;
+    cur.setDate(cur.getDate() + diff);
+    if (cur < base) cur.setDate(cur.getDate() + 7);
+  } else if (ev.repeat === 'monthly') {
+    cur = new Date(year, month, base.getDate());
+    if (cur < base || cur < mStart) cur.setMonth(cur.getMonth() + 1);
+    if (cur.getDate() !== base.getDate()) return dates; // month doesn't have that day
+  }
+
+  while (cur <= mEnd && cur <= rEnd) {
+    if (cur >= base) dates.push(fmtDate(cur));
+    if (ev.repeat === 'daily')   cur.setDate(cur.getDate() + 1);
+    else if (ev.repeat === 'weekly') cur.setDate(cur.getDate() + 7);
+    else if (ev.repeat === 'monthly') { cur.setMonth(cur.getMonth() + 1); if (cur.getDate() !== base.getDate()) break; }
+    else break;
+  }
+  return dates;
+}
+
+// Get events for a specific date string
+function evtsForDate(dateStr) {
+  const d = dateFromStr(dateStr);
+  const evts = loadEvts();
+  return evts.filter(ev => {
+    const dates = evtDatesInMonth(ev, d.getFullYear(), d.getMonth());
+    return dates.includes(dateStr);
+  }).sort((a,b) => (a.startTime||'').localeCompare(b.startTime||''));
+}
+
+// ═══════════════════════════════════════════
+//  Calendar Render
+// ═══════════════════════════════════════════
+function renderCalendar() {
+  // Header
+  const lbl = document.getElementById('monthYearLabel');
+  lbl.innerHTML = `${viewYear}년 <span>${MONTHS_KO[viewMonth]}</span>`;
+
+  const grid  = document.getElementById('calGrid');
+  const today = todayStr();
+  const evts  = loadEvts();
+
+  // Build date→events map for this month
+  const evtMap = {};
+  evts.forEach(ev => {
+    evtDatesInMonth(ev, viewYear, viewMonth).forEach(d => {
+      (evtMap[d] = evtMap[d]||[]).push(ev);
+    });
+  });
+  Object.values(evtMap).forEach(arr =>
+    arr.sort((a,b) => (a.startTime||'').localeCompare(b.startTime||''))
+  );
+
+  const firstDow = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMon = new Date(viewYear, viewMonth+1, 0).getDate();
+  const daysInPrev = new Date(viewYear, viewMonth, 0).getDate();
+
+  let html = '';
+  for (let i = 0; i < 42; i++) {
+    let dayNum, dateStr, isCurMon = true;
+    const dow = i % 7;
+
+    if (i < firstDow) {
+      dayNum = daysInPrev - firstDow + i + 1;
+      const pm = viewMonth === 0 ? 11 : viewMonth-1;
+      const py = viewMonth === 0 ? viewYear-1 : viewYear;
+      dateStr = `${py}-${pad(pm+1)}-${pad(dayNum)}`;
+      isCurMon = false;
+    } else if (i >= firstDow + daysInMon) {
+      dayNum = i - firstDow - daysInMon + 1;
+      const nm = viewMonth === 11 ? 0 : viewMonth+1;
+      const ny = viewMonth === 11 ? viewYear+1 : viewYear;
+      dateStr = `${ny}-${pad(nm+1)}-${pad(dayNum)}`;
+      isCurMon = false;
+    } else {
+      dayNum = i - firstDow + 1;
+      dateStr = `${viewYear}-${pad(viewMonth+1)}-${pad(dayNum)}`;
+    }
+
+    const isToday = dateStr === today;
+    const dayEvts = evtMap[dateStr] || [];
+    const MAX = 3;
+
+    let cls = 'cal-cell';
+    if (!isCurMon) cls += ' other-month';
+    if (isToday)   cls += ' is-today';
+    if (dow === 0) cls += ' is-sun';
+    if (dow === 6) cls += ' is-sat';
+    if (dayEvts.length > 0) cls += ' has-events';
+
+    let chipsHtml = '';
+    dayEvts.slice(0, MAX).forEach(ev => {
+      const t = ev.startTime ? ev.startTime+' ' : '';
+      chipsHtml += `<div class="evt-chip" style="background:${ev.color||COLORS[0]}"
+        title="${esc(ev.title)}"
+        onclick="event.stopPropagation();openDayModal('${dateStr}')"
+      >${esc(t+ev.title)}</div>`;
+    });
+    if (dayEvts.length > MAX) {
+      chipsHtml += `<div class="more-badge">+${dayEvts.length-MAX}개</div>`;
+    }
+
+    html += `<div class="${cls}" onclick="openDayModal('${dateStr}')">
+      <div class="day-num">${dayNum}</div>
+      ${chipsHtml}
+    </div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function shiftMonth(d) {
+  viewMonth += d;
+  if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+  if (viewMonth < 0)  { viewMonth = 11; viewYear--; }
+  renderCalendar();
+}
+
+function goToday() {
+  viewYear  = new Date().getFullYear();
+  viewMonth = new Date().getMonth();
+  renderCalendar();
+}
+
+// ═══════════════════════════════════════════
+//  Day Modal
+// ═══════════════════════════════════════════
+function openDayModal(dateStr) {
+  activeDayDate = dateStr;
+  const d = dateFromStr(dateStr);
+  document.getElementById('dayModalTitle').textContent =
+    `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${DAYS_KO[d.getDay()]})`;
+
+  renderDayList(dateStr);
+  document.getElementById('dayAddBtn').onclick = () => openAddForDate(dateStr);
+  openOverlay('dayOverlay');
+}
+
+function renderDayList(dateStr) {
+  const dayEvts = evtsForDate(dateStr);
+  const list = document.getElementById('dayEvtList');
+  if (!dayEvts.length) {
+    list.innerHTML = '<div class="empty-day">등록된 일정이 없습니다</div>';
+    return;
+  }
+  list.innerHTML = dayEvts.map(ev => {
+    const timeStr = ev.startTime
+      ? `${ev.startTime}${ev.endTime ? ' ~ '+ev.endTime : ''}`
+      : '종일';
+    const repStr = ev.repeat !== 'none' ? ` · ${REPEAT_LABELS[ev.repeat]} 반복` : '';
+    return `<div class="day-evt-item" onclick="openEditModal('${ev.id}')">
+      <div class="evt-dot" style="background:${ev.color||COLORS[0]}"></div>
+      <div class="evt-info">
+        <div class="evt-title">${esc(ev.title)}</div>
+        <div class="evt-meta">${esc(timeStr)}${repStr}</div>
+        ${ev.note ? `<div class="evt-note">${esc(ev.note)}</div>` : ''}
+      </div>
+      <span class="evt-item-arrow">›</span>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+//  Event Form Modal
+// ═══════════════════════════════════════════
+function buildColorPicker() {
+  document.getElementById('colorPicker').innerHTML = COLORS.map(c =>
+    `<div class="color-swatch${c===chosenColor?' active':''}" style="background:${c}"
+      onclick="pickColor('${c}')"></div>`
+  ).join('');
+}
+
+function pickColor(c) {
+  chosenColor = c;
+  buildColorPicker();
+}
+
+function toggleRepeatEnd() {
+  const v = document.getElementById('fRepeat').value;
+  document.getElementById('fRepeatEndGroup').style.display = v !== 'none' ? 'block' : 'none';
+}
+
+function openAddForDate(dateStr) {
+  editingId = null;
+  chosenColor = COLORS[0];
+  document.getElementById('evtModalTitle').textContent = '일정 추가';
+  document.getElementById('fTitle').value = '';
+  document.getElementById('fDate').value = dateStr;
+  document.getElementById('fStart').value = '';
+  document.getElementById('fEnd').value = '';
+  document.getElementById('fRepeat').value = 'none';
+  document.getElementById('fRepeatEnd').value = '';
+  document.getElementById('fRepeatEndGroup').style.display = 'none';
+  document.getElementById('fNote').value = '';
+  document.getElementById('fTitle').classList.remove('has-error');
+  buildColorPicker();
+  document.getElementById('evtActions').innerHTML = `
+    <button class="btn btn-secondary" onclick="closeOverlay('evtOverlay')">취소</button>
+    <button class="btn btn-primary" onclick="saveEvt()">저장</button>
+  `;
+  closeOverlay('dayOverlay');
+  openOverlay('evtOverlay');
+  setTimeout(() => document.getElementById('fTitle').focus(), 300);
+}
+
+function openEditModal(id) {
+  const ev = loadEvts().find(e => e.id === id);
+  if (!ev) return;
+  editingId = id;
+  chosenColor = ev.color || COLORS[0];
+  document.getElementById('evtModalTitle').textContent = '일정 수정';
+  document.getElementById('fTitle').value = ev.title;
+  document.getElementById('fDate').value = ev.date;
+  document.getElementById('fStart').value = ev.startTime || '';
+  document.getElementById('fEnd').value = ev.endTime || '';
+  document.getElementById('fRepeat').value = ev.repeat || 'none';
+  document.getElementById('fRepeatEnd').value = ev.repeatEndDate || '';
+  document.getElementById('fRepeatEndGroup').style.display = (ev.repeat && ev.repeat !== 'none') ? 'block' : 'none';
+  document.getElementById('fNote').value = ev.note || '';
+  document.getElementById('fTitle').classList.remove('has-error');
+  buildColorPicker();
+  document.getElementById('evtActions').innerHTML = `
+    <button class="btn btn-danger" onclick="deleteEvt('${id}')">삭제</button>
+    <button class="btn btn-secondary" onclick="closeOverlay('evtOverlay')">취소</button>
+    <button class="btn btn-primary" onclick="saveEvt()">저장</button>
+  `;
+  openOverlay('evtOverlay');
+  setTimeout(() => document.getElementById('fTitle').focus(), 300);
+}
+
+function saveEvt() {
+  const title = document.getElementById('fTitle').value.trim();
+  if (!title) {
+    document.getElementById('fTitle').classList.add('has-error');
+    document.getElementById('fTitle').focus();
+    showToast('제목을 입력해주세요.');
+    return;
+  }
+  document.getElementById('fTitle').classList.remove('has-error');
+
+  const ev = {
+    id: editingId || ('ev_' + Date.now() + '_' + Math.random().toString(36).slice(2,7)),
+    title,
+    date: document.getElementById('fDate').value || todayStr(),
+    startTime: document.getElementById('fStart').value,
+    endTime: document.getElementById('fEnd').value,
+    repeat: document.getElementById('fRepeat').value,
+    repeatEndDate: document.getElementById('fRepeatEnd').value,
+    note: document.getElementById('fNote').value.trim(),
+    color: chosenColor,
+  };
+
+  const evts = loadEvts();
+  if (editingId) {
+    const idx = evts.findIndex(e => e.id === editingId);
+    if (idx !== -1) evts[idx] = ev; else evts.push(ev);
+  } else {
+    evts.push(ev);
+  }
+  saveEvts(evts);
+  scheduleNotifs();
+  renderCalendar();
+  closeOverlay('evtOverlay');
+  showToast(editingId ? '일정이 수정되었습니다.' : '일정이 추가되었습니다.');
+}
+
+function deleteEvt(id) {
+  if (!confirm('이 일정을 삭제할까요?')) return;
+  saveEvts(loadEvts().filter(e => e.id !== id));
+  scheduleNotifs();
+  renderCalendar();
+  closeOverlay('evtOverlay');
+  closeOverlay('dayOverlay');
+  showToast('일정이 삭제되었습니다.');
+}
+
+// ═══════════════════════════════════════════
+//  Modal Utilities
+// ═══════════════════════════════════════════
+function openOverlay(id) {
+  document.getElementById(id).classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeOverlay(id) {
+  document.getElementById(id).classList.remove('open');
+  if (!document.querySelector('.overlay.open')) document.body.style.overflow = '';
+}
+function overlayClick(e, id) {
+  if (e.target.classList.contains('overlay')) closeOverlay(id);
+}
+
+// Keyboard support
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    // Close top-most open overlay
+    const open = [...document.querySelectorAll('.overlay.open')];
+    if (open.length) closeOverlay(open[open.length-1].id);
+  }
+  if (e.key === 'Enter' && document.getElementById('evtOverlay').classList.contains('open')) {
+    const active = document.activeElement;
+    if (active && (active.tagName === 'TEXTAREA')) return; // allow newlines in textarea
+    saveEvt();
+  }
+});
+
+// ═══════════════════════════════════════════
+//  Notifications
+// ═══════════════════════════════════════════
+function checkNotifPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    document.getElementById('notifBar').style.display = 'flex';
+  }
+}
+function requestNotifPermission() {
+  Notification.requestPermission().then(p => {
+    document.getElementById('notifBar').style.display = 'none';
+    if (p === 'granted') { showToast('알림이 허용되었습니다. 일정 10분 전에 알림이 옵니다.'); scheduleNotifs(); }
+    else showToast('알림이 차단되었습니다.');
+  });
+}
+function dismissNotifBar() {
+  document.getElementById('notifBar').style.display = 'none';
+}
+
+function scheduleNotifs() {
+  Object.values(notifTimers).forEach(clearTimeout);
+  notifTimers = {};
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+  const evts = loadEvts();
+  const now  = new Date();
+  const WIN  = 48 * 60 * 60 * 1000; // schedule 48h ahead
+
+  evts.forEach(ev => {
+    if (!ev.startTime) return;
+    // Check today + next 2 days for occurrences
+    for (let offset = 0; offset < 3; offset++) {
+      const check = new Date(now);
+      check.setDate(check.getDate() + offset);
+      const ds = fmtDate(check);
+      const hits = evtDatesInMonth(ev, check.getFullYear(), check.getMonth());
+      if (!hits.includes(ds)) continue;
+
+      const evTime = new Date(`${ds}T${ev.startTime}`);
+      // 10 min before
+      scheduleOneNotif(`${ev.id}_${ds}_pre`, evTime.getTime() - 10*60*1000, now,
+        '⏰ 일정 알림', `10분 후 시작: ${ev.title}`, ev.note);
+      // At event time
+      scheduleOneNotif(`${ev.id}_${ds}_at`, evTime.getTime(), now,
+        '📅 일정 시작', `${ev.title}${ev.startTime ? ' ('+ev.startTime+')' : ''}`, ev.note);
+    }
+  });
+}
+
+function scheduleOneNotif(key, fireAt, now, title, body, note) {
+  const delay = fireAt - now.getTime();
+  if (delay <= 0 || delay > 48*60*60*1000) return;
+  notifTimers[key] = setTimeout(() => {
+    new Notification(title, {
+      body: note ? body + '\n' + note : body,
+      icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">📅</text></svg>'
+    });
+  }, delay);
+}
+
+// ═══════════════════════════════════════════
+//  Toast
+// ═══════════════════════════════════════════
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+// ═══════════════════════════════════════════
+//  HTML Escape
+// ═══════════════════════════════════════════
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════
+//  Init
+// ═══════════════════════════════════════════
+renderCalendar();
+checkNotifPermission();
+scheduleNotifs();
+// Re-schedule notifications every hour in case the page stays open
+setInterval(scheduleNotifs, 60 * 60 * 1000);
+</script>
+</body>
+</html>
